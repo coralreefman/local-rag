@@ -200,3 +200,127 @@ model = SentenceTransformer("all-MiniLM-L6-v2")
 sentences = ["This is an example sentence", "Each sentence is converted"]
 embeddings = model.encode(sentences)
 ```
+
+## Embedding Models
+
+- OpenAI’s text-embedding-3-large (rank 37, 3072dim, 8191maxT)
+- [all-mpnet-base-v2](https://huggingface.co/sentence-transformers/all-mpnet-base-v2) (rank 112, 110M, 0.41GB, 768dim, 512maxT)
+- [nomic-embed-text-v1.5](https://huggingface.co/nomic-ai/nomic-embed-text-v1.5) (rank 61, 137M, 0.51GB, 768dim, 768dim, 8192maxT) (gpt4all)
+- [stella_en_1.5B_v5](https://huggingface.co/dunzhang/stella_en_1.5B_v5) (rank 3, 1543M, 5.75GB, 8192dim, 131072maxT)
+- [stella_en_400M_v5](https://huggingface.co/dunzhang/stella_en_400M_v5) (rank 6, 435M, 1.62GB, 8192dim, 8192maxT)
+- [bge-large-en-v1.5](https://huggingface.co/BAAI/bge-large-en-v1.5) (rank 42, 335M, 1.25GB, 1024dim, 512maxT)
+
+Note: seems like most embedding models need some prompt modifications / implementation → check out their respective HF pages
+
+## Chunking Strategies
+
+### Fixed-Size (Character) Sliding Window
+
+Splits text into **equal-sized chunks** with **overlaps** to preserve context.
+
+```python
+from langchain.text_splitter import CharacterTextSplitter
+
+text = "LangChain simplifies AI workflows. It enables advanced retrieval-augmented generation systems for NLP tasks."
+splitter = CharacterTextSplitter(chunk_size=50, chunk_overlap=10)
+chunks = splitter.split_text(text)
+print(chunks)
+```
+
+**Pros:**
+
+- Easy to implement.
+- Preserves partial context by overlapping chunks.
+
+**Cons:**
+
+- Ignores sentence meaning — may cut sentences abruptly.
+
+**Best Use Cases:**
+
+- Quick preprocessing or exploratory analysis.
+- Word frequency or simple keyword matching.
+
+### Recursive Structure-Aware
+
+Splits text **hierarchically** (sections → paragraphs) to preserve **logical structure**.
+
+```python
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+text = """LangChain supports modular pipelines for AI workflows.  
+These workflows include document loading, chunking, retrieval, and LLM integration.  
+LangChain simplifies AI model deployment."""
+splitter = RecursiveCharacterTextSplitter(chunk_size=50, chunk_overlap=10)
+chunks = splitter.split_text(text)
+print(chunks)
+```
+
+**Pros:**
+
+- Preserves **context** better than fixed-size splitting.
+- Handles **nested structures** like paragraphs or sections.
+
+**Cons:**
+
+- Slightly complex to set up.
+- May produce **variable-sized chunks** that are harder to index.
+
+**Best Use Cases:**
+
+- QA systems requiring **structured and coherent chunks**.
+- Long-form content like **reports and articles**.
+
+### Content-Aware Splitting
+
+Splits based on **document structure** (e.g., Markdown headings, code blocks).
+
+```python
+from langchain.text_splitter import MarkdownTextSplitter
+
+text = "# Header 1\nContent under header.\n\n## Header 2\nMore content here."
+splitter = MarkdownTextSplitter(chunk_size=50)
+chunks = splitter.split_text(text)
+print(chunks)
+```
+
+**Pros:**
+
+- Preserves **document formatting** (headers, code blocks).
+- Ideal for **structured documents** like reports or blogs.
+
+**Cons:**
+
+- Doesn’t work well with **unformatted text**.
+
+**Best Use Cases:**
+
+- **Markdown documents**, reports, or **blogs** with headings and sections.
+
+### Semantic Chunking
+
+Splits text based on **semantic similarity** instead of character or structure.
+
+```python
+from langchain_experimental.text_splitter import SemanticChunker
+from langchain_openai import OpenAIEmbeddings
+
+embeddings = OpenAIEmbeddings()
+splitter = SemanticChunker(embeddings)
+text = "Galaxies form part of the universe. Black holes are regions of space-time."
+chunks = splitter.split_text(text)
+print(chunks)
+```
+
+**Pros:**
+
+- Keeps **topic coherence** intact.
+- Ideal for **deep analysis** like sentiment or topic modeling.
+
+**Cons:**
+
+- **Computationally expensive** — requires embedding models.
+
+**Best Use Cases:**
+
+- Tasks requiring **thematic understanding** like **summarization** or **classification**.
